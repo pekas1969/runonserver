@@ -1,75 +1,127 @@
 # RunOnServer
 
-**RunOnServer** is a Linux system tray application that lets you manage multiple remote servers via SSH. You can view server status, run commands on individual servers or on all at once, and use a configuration file to define actions.
+RunOnServer is a lightweight Linux system tray application to manage and run commands via SSH on multiple servers, configured via a YAML file.
+
+---
 
 ## Features
 
-- System tray icon with menu
-- Per-server status (online/offline)
-- Execute commands on individual servers
-- Run global commands on all servers
-- Configure via `servers.yaml` file
-- Automatic SSH key generation and setup
-- Terminal window holds output if needed
-- Compatible with KDE, GNOME, XFCE, and more
+- System tray icon showing server statuses (online/offline)
+- Per-server command menus executed via SSH in terminal windows
+- Support for multiple commands per server
+- Global commands executed on all servers simultaneously
+- Automatic SSH key generation and setup per server
+- Configurable behavior to keep terminal windows open after command execution
+- Works primarily on KDE Plasma 6, but compatible with GNOME, XFCE, and others
 
-## Installation
+---
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/pekas1969/RunOnServer.git
-   cd RunOnServer
-   ```
+## Installation & Setup
 
-2. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+1. **Install dependencies**
 
-3. Install required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Run the application:
-   ```bash
-   python run_on_server.py
-   ```
-
-## Configuration
-
-The configuration file is located at:
-```
-~/.config/RunOnServer/servers.yaml
+```bash
+pip install PyQt6 PyYAML
 ```
 
-If the file does not exist, it will be created on first run with a default `localhost` entry.
+2. **Place `servers.yaml` in `~/.config/RunOnServer/`**
 
-### Example `servers.yaml`
+On first run, if no config is found, a default one with a localhost entry is created automatically.
+
+3. **Run the application**
+
+```bash
+python3 run_on_server.py
+```
+
+---
+
+## Configuration File Example (`servers.yaml`)
 
 ```yaml
 servers:
   - name: "Webserver"
-    host: "192.168.1.100"
+    host: "192.168.177.5"
     user: "root"
     commands:
       - name: "Restart Apache"
         command: "sudo systemctl restart apache2"
         hold_terminal: true
 
+  - name: "Fileserver"
+    host: "192.168.177.200"
+    user: "peter"
+    commands:
+      - name: "Reboot"
+        command: "sudo reboot"
+        hold_terminal: false
+      - name: "List directory"
+        command: "ls"
+        hold_terminal: true
+
 global_commands:
-  - name: "Update All Systems"
+  - name: "Update system"
     command: "sudo dnf upgrade -y || sudo apt update && sudo apt upgrade -y || sudo pacman -Syu --noconfirm || sudo zypper dup -y"
     hold_terminal: true
 ```
 
-## Notes
+---
 
-- SSH keys are stored under `~/.ssh/`. The app generates a key if not present.
-- If you use GitHub, make sure to push code using SSH or a personal access token.
-- Tested under Python 3.10+ and PyQt6.
+## How to Remove RunOnServer
+
+If you want to uninstall and remove RunOnServer from your system, follow these steps:
+
+1. **Remove the application files**
+
+Delete the directory where you cloned or placed the `run_on_server.py` script and related files.
+
+```bash
+rm -rf /path/to/RunOnServer
+```
+
+Replace `/path/to/RunOnServer` with the actual path where the project is located.
+
+2. **Remove the configuration directory**
+
+Delete the config folder with your server configurations:
+
+```bash
+rm -rf ~/.config/RunOnServer
+```
+
+3. **(Optional) Remove the Python virtual environment**
+
+If you used a virtual environment for dependencies, remove it as well:
+
+```bash
+rm -rf /path/to/your/venv
+```
+
+Replace `/path/to/your/venv` with your virtual environment folder.
+
+4. **(Optional) Uninstall Python dependencies**
+
+If you installed dependencies globally (not recommended), you can uninstall them:
+
+```bash
+pip uninstall PyQt6 PyYAML
+```
+
+---
+
+## Contributing
+
+Feel free to open issues or submit pull requests on GitHub.
+
+---
 
 ## License
 
-MIT License
+[MIT License](LICENSE)
+
+---
+
+## Contact
+
+For questions or suggestions, open an issue on GitHub or contact peter@example.com
+
