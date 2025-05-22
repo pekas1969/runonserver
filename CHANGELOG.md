@@ -26,3 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.1-1] - 2025-05-22
+
+### Fixed
+- Updated contact email address in README.md to `peter.kasparak@gmail.com`.
+
+---
