@@ -123,5 +123,5 @@ Feel free to open issues or submit pull requests on GitHub.
 
 ## Contact
 
-For questions or suggestions, open an issue on GitHub or contact peter@example.com
+For questions or suggestions, open an issue on GitHub or contact peter.kasparak@gmail.com
 
