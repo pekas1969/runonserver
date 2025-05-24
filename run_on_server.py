@@ -20,19 +20,73 @@ def load_config(path=CONFIG_FILE):
         default_config = {
             "servers": [
                 {
-                    "name": "Localhost",
-                    "host": "localhost",
-                    "user": default_user,
+                    "name": "Server 1",
+                    "host": "192.168.177.5",
+                    "user": "root",
+                    "category": "Servers-Home",
                     "commands": [
                         {
-                            "name": "Dateien anzeigen",
-                            "command": "ls ~/",
+                            "name": "Apache neu starten",
+                            "command": "sudo systemctl restart apache2",
+                            "hold_terminal": True
+                        }
+                    ]
+                },
+                {
+                    "name": "Server 2",
+                    "host": "192.168.177.11",
+                    "user": "root",
+                    "category": "Servers-Home",
+                    "commands": [
+                        {
+                            "name": "Nginx neu starten",
+                            "command": "sudo systemctl restart nginx",
+                            "hold_terminal": True
+                        }
+                    ]
+                },
+                {
+                    "name": "Server 3",
+                    "host": "192.168.177.200",
+                    "user": default_user,
+                    "category": "Servers-Work",
+                    "commands": [
+                        {
+                            "name": "Neustarten",
+                            "command": "sudo reboot",
+                            "hold_terminal": False
+                        },
+                        {
+                            "name": "Inhalt anzeigen",
+                            "command": "ls",
                             "hold_terminal": True
                         }
                     ]
                 }
             ],
-            "global_commands": []
+            "category_commands": {
+                "Servers-Home": [
+                    {
+                        "name": "Neustarten",
+                        "command": "sudo reboot",
+                        "hold_terminal": False
+                    }
+                ],
+                "Servers-Work": [
+                    {
+                        "name": "Daten sichern",
+                        "command": "rsync -av ~/daten/ /backup/",
+                        "hold_terminal": True
+                    }
+                ]
+            },
+            "global_commands": [
+                {
+                    "name": "System aktualisieren",
+                    "command": "sudo apt update && sudo apt upgrade -y",
+                    "hold_terminal": True
+                }
+            ]
         }
         with open(path, "w") as f:
             yaml.dump(default_config, f)
