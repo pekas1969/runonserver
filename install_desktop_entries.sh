@@ -26,7 +26,7 @@ cat > "$DESKTOP_DIR/runonserver-editor.desktop" <<EOF
 [Desktop Entry]
 Name=RunOnServer Editor
 Comment=Bearbeitet die Serverkonfiguration
-Exec=python3 $PROJECT_DIR/runonserver_editor.py
+Exec=python3 $PROJECT_DIR/server_editor.py
 Icon=accessories-text-editor
 Terminal=false
 Type=Application
@@ -41,5 +41,5 @@ update-desktop-database "$DESKTOP_DIR" 2>/dev/null
 
 echo "Desktop-Verknüpfungen wurden erstellt:"
 echo "  - RunOnServer"
-echo "  - RunOnServer Editor"
+echo "  - Server Editor"
 echo "Sie sollten nun im Anwendungsmenü unter 'Internet' erscheinen."
