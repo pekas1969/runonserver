@@ -9,14 +9,14 @@ RunOnServer is a lightweight system tray tool to execute commands on remote serv
 ```bash
 git clone https://github.com/pekas1969/RunOnServer.git
 cd RunOnServer
-python3 -m venv runonserver-env
-source runonserver-env/bin/activate
 pip install -r requirements.txt
 ```
 
 ## 🚀 Starten
 
 ```bash
+python3 run_on_server.py
+or
 ./runonserver_start.sh
 ```
 
