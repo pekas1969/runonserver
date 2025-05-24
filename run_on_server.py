@@ -1,115 +1,175 @@
-import os
 import sys
-import yaml
-import getpass
 import subprocess
+import os
+import shutil
+import threading
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMessageBox
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QCoreApplication
+import yaml
+import socket
+import getpass
 
 CONFIG_DIR = os.path.expanduser("~/.config/RunOnServer")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "servers.yaml")
 
-def ensure_config_exists():
-    if not os.path.exists(CONFIG_FILE):
+# Funktion zum Einlesen der YAML-Datei, legt Default an, falls nicht vorhanden
+def load_config(path=CONFIG_FILE):
+    if not os.path.exists(path):
         os.makedirs(CONFIG_DIR, exist_ok=True)
+        default_user = getpass.getuser()
         default_config = {
-            'servers': [
+            "servers": [
                 {
-                    'name': 'Localhost',
-                    'host': 'localhost',
-                    'user': getpass.getuser(),
-                    'category': 'Default',
-                    'commands': [
+                    "name": "Localhost",
+                    "host": "localhost",
+                    "user": default_user,
+                    "commands": [
                         {
-                            'name': 'Dateien anzeigen',
-                            'command': 'ls ~/',
-                            'hold_terminal': True
+                            "name": "Dateien anzeigen",
+                            "command": "ls ~/",
+                            "hold_terminal": True
                         }
                     ]
                 }
             ],
-            'global_commands': [],
-            'category_commands': {}
+            "global_commands": []
         }
-        with open(CONFIG_FILE, 'w') as f:
+        with open(path, "w") as f:
             yaml.dump(default_config, f)
+        return default_config
+    else:
+        with open(path, "r") as file:
+            return yaml.safe_load(file)
 
-def load_config():
-    with open(CONFIG_FILE, 'r') as f:
-        return yaml.safe_load(f)
+# Prüfen, ob Host online ist
+def is_host_online(host):
+    try:
+        socket.setdefaulttimeout(1.5)
+        socket.create_connection((host, 22))
+        return True
+    except Exception:
+        return False
 
-def execute_ssh_command(user, host, command, hold):
-    terminal_cmd = [
-        "konsole",
-        "-e",
-        f"bash -c 'ssh {user}@{host} "{command}"; {'bash' if hold else 'exit'}'"
-    ]
-    subprocess.Popen(terminal_cmd)
+# SSH-Key Pfad
+def get_ssh_key_path():
+    return os.path.expanduser("~/.ssh/id_rsa.pub")
 
-def execute_group_command(servers, category, command, hold):
-    for server in servers:
-        if server.get('category') == category:
-            execute_ssh_command(server['user'], server['host'], command, hold)
+def ssh_key_exists():
+    return os.path.exists(get_ssh_key_path())
 
-def create_tray_icon():
-    ensure_config_exists()
-    config = load_config()
+def generate_ssh_key():
+    if not ssh_key_exists():
+        subprocess.run(["ssh-keygen", "-t", "rsa", "-b", "4096", "-N", "", "-f", os.path.expanduser("~/.ssh/id_rsa")])
 
-    app = QApplication(sys.argv)
-    tray = QSystemTrayIcon(QIcon.fromTheme("network-server"), parent=app)
+def copy_ssh_key_to_server(user, host):
+    subprocess.run(["ssh-copy-id", f"{user}@{host}"])
+
+# Terminalbefehl ausführen
+def run_ssh_command(server, command):
+    user = server["user"]
+    host = server["host"]
+    remote_cmd = command["command"]
+    hold = command.get("hold_terminal", False)
+
+    if shutil.which("konsole"):
+        term_cmd = ["konsole", "-e"]
+    elif shutil.which("gnome-terminal"):
+        term_cmd = ["gnome-terminal", "--"]
+    elif shutil.which("xfce4-terminal"):
+        term_cmd = ["xfce4-terminal", "-e"]
+    elif shutil.which("x-terminal-emulator"):
+        term_cmd = ["x-terminal-emulator", "-e"]
+    else:
+        QMessageBox.warning(None, "Fehler", "Kein unterstütztes Terminal gefunden.")
+        return
+
+    # Bash-Befehl mit ssh, bei hold Terminal offen lassen
+    bash_cmd = f"ssh {user}@{host} '{remote_cmd}'"
+    if hold:
+        bash_cmd += "; echo 'Press any key to close...'; read -n 1"
+
+    subprocess.Popen(term_cmd + ["bash", "-c", bash_cmd])
+
+# Klick Handler für einzelne Befehle
+def on_command_click(server, command):
+    threading.Thread(target=run_ssh_command, args=(server, command), daemon=True).start()
+
+# Klick Handler für globale Befehle (für alle Server)
+def on_global_command_click(config, command):
+    for server in config.get("servers", []):
+        threading.Thread(target=run_ssh_command, args=(server, command), daemon=True).start()
+
+# Menü bauen mit Kategorien
+def build_menu(tray_icon, config):
     menu = QMenu()
 
-    servers_by_category = {}
-    for server in config.get('servers', []):
-        category = server.get('category', 'Uncategorized')
-        servers_by_category.setdefault(category, []).append(server)
+    # Global Commands als eigener Menüpunkt "Alle Server"
+    global_commands = config.get("global_commands", [])
+    if global_commands:
+        global_menu = menu.addMenu("Alle Server")
+        for command in global_commands:
+            global_menu.addAction(command["name"], lambda c=command: on_global_command_click(config, c))
+        menu.addSeparator()
 
-    for category, servers in servers_by_category.items():
-        category_menu = QMenu(category, menu)
+    # Server nach Kategorien gruppieren
+    servers = config.get("servers", [])
+    category_commands = config.get("category_commands", {})
 
-        # Kategorie-Befehle
-        for group_cmd in config.get('category_commands', {}).get(category, []):
-            action = QAction(f"[{category}] {group_cmd['name']}")
-            action.triggered.connect(lambda checked=False, c=group_cmd, cat=category: execute_group_command(
-                config['servers'], cat, c['command'], c.get('hold_terminal', True)
-            ))
-            category_menu.addAction(action)
+    # Kategorien aus Servern extrahieren (ohne Duplikate)
+    categories = sorted(set(s.get("category", "Unkategorisiert") for s in servers))
 
-        category_menu.addSeparator()
+    for category in categories:
+        category_menu = menu.addMenu(category)
 
-        for server in servers:
-            server_menu = QMenu(server['name'], category_menu)
-            for cmd in server.get('commands', []):
-                action = QAction(cmd['name'])
-                action.triggered.connect(lambda checked=False, s=server, c=cmd: execute_ssh_command(
-                    s['user'], s['host'], c['command'], c.get('hold_terminal', True)
-                ))
-                server_menu.addAction(action)
-            category_menu.addMenu(server_menu)
+        # Kategorie-spezifische Befehle hinzufügen
+        cat_cmds = category_commands.get(category, [])
+        if cat_cmds:
+            for command in cat_cmds:
+                # Lambda mit default-Argument zum Einfangen von command nötig wegen late binding
+                category_menu.addAction(command["name"], lambda c=command: on_global_command_click(
+                    {"servers": [s for s in servers if s.get("category") == category]}, c))
+            category_menu.addSeparator()
 
-        menu.addMenu(category_menu)
+        # Server der Kategorie hinzufügen
+        for server in [s for s in servers if s.get("category") == category]:
+            server_name = server["name"]
+            host = server["host"]
+            online = is_host_online(host)
+            status_text = f"{server_name} ({'online' if online else 'offline'})"
 
-    if 'global_commands' in config:
-        global_menu = QMenu("Global Commands", menu)
-        for cmd in config['global_commands']:
-            action = QAction(cmd['name'])
-            action.triggered.connect(lambda checked=False, c=cmd: [
-                execute_ssh_command(s['user'], s['host'], c['command'], c.get('hold_terminal', True))
-                for s in config.get('servers', [])
-            ])
-            global_menu.addAction(action)
-        menu.addMenu(global_menu)
+            server_menu = category_menu.addMenu(status_text)
+
+            for command in server.get("commands", []):
+                server_menu.addAction(command["name"], lambda s=server, c=command: on_command_click(s, c))
+
+            server_menu.addSeparator()
+            ssh_action = QAction("SSH-Key einrichten", server_menu)
+            ssh_action.triggered.connect(lambda checked, s=server: setup_ssh_key(s))
+            server_menu.addAction(ssh_action)
 
     menu.addSeparator()
-    quit_action = QAction("Quit")
-    quit_action.triggered.connect(QCoreApplication.quit)
-    menu.addAction(quit_action)
+    menu.addAction("Beenden", QApplication.instance().quit)
+    tray_icon.setContextMenu(menu)
 
-    tray.setContextMenu(menu)
-    tray.setToolTip("RunOnServer")
-    tray.show()
+# SSH-Key Setup Workflow
+def setup_ssh_key(server):
+    generate_ssh_key()
+    user = server["user"]
+    host = server["host"]
+    copy_ssh_key_to_server(user, host)
+    QMessageBox.information(None, "SSH-Key", f"SSH-Key für {user}@{host} eingerichtet.")
+
+def main():
+    app = QApplication(sys.argv)
+    config = load_config()
+
+    tray_icon = QSystemTrayIcon(QIcon.fromTheme("network-server"), app)
+    tray_icon.setToolTip("RunOnServer")
+
+    build_menu(tray_icon, config)
+    tray_icon.show()
+
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    create_tray_icon()
+    main()
