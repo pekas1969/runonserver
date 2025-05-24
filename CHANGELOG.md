@@ -32,3 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated contact email address in README.md to `peter.kasparak@gmail.com`.
 
 ---
+
+## [v0.0.1-0] - 2025-05-23
+
+### Added
+- ✨ Support for categorizing servers into groups (e.g., `Servers-Home`, `Servers-Work`) via `servers.yaml`
+- ➕ Support for sending global commands to all servers within a group
+- 🚀 New startup script `runonserver_start.sh` that activates the virtual environment and runs the app
+
+### Changed
+- 📄 Updated `README.md` with new usage instructions and group-based configuration
