@@ -42,3 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - 📄 Updated `README.md` with new usage instructions and group-based configuration
+
+## What's new in v0.0.2-0
+
+- feat: add support for categories with group-specific commands
+- feat: allow category-wide and global commands via YAML
+- fix: QIcon import issue (system tray icon)
+- docs: simplified README for non-virtual environment installation
+- chore: updated changelog and minor cleanups
