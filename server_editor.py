@@ -2,330 +2,289 @@ import sys
 import os
 import yaml
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-    QPushButton, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QInputDialog
+    QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem,
+    QVBoxLayout, QWidget, QInputDialog, QLineEdit, QMessageBox,
+    QMenu, QDialog, QDialogButtonBox, QLabel, QFormLayout, QComboBox, QTextEdit
 )
 from PyQt6.QtCore import Qt
 
 CONFIG_PATH = os.path.expanduser("~/.config/RunOnServer/servers.yaml")
 
-class ServerEditor(QWidget):
-    def __init__(self, data):
-        super().__init__()
-        self.setWindowTitle("RunOnServer - Server Editor")
-        self.resize(800, 600)
+def load_config():
+    if not os.path.exists(CONFIG_PATH):
+        return {"servers": [], "global_commands": [], "category_commands": {}}
+    with open(CONFIG_PATH, "r") as f:
+        return yaml.safe_load(f)
 
-        self.data = data
-        self.servers = data.get("servers", [])
-        self.category_commands = data.get("category_commands", {})
-        self.global_commands = data.get("global_commands", [])
+def save_config(data):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        yaml.safe_dump(data, f)
 
-        # Aktuell ausgewählte Kategorie, Server, Kommando
-        self.current_category = None
-        self.current_server = None
-        self.current_command = None
-        self.current_global_command = None
-        self.current_category_command = None
+class CommandDialog(QDialog):
+    def __init__(self, parent=None, command=None):
+        super().__init__(parent)
+        self.setWindowTitle("Befehl bearbeiten" if command else "Befehl hinzufügen")
+        self.command = command or {"name": "", "command": "", "hold_terminal": False}
+        self.init_ui()
 
-        # Layout
-        main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+    def init_ui(self):
+        layout = QFormLayout(self)
 
-        # Baumansicht
-        self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Servers and Commands"])
-        self.tree.itemClicked.connect(self.on_tree_item_clicked)
-        main_layout.addWidget(self.tree)
+        self.name_input = QLineEdit(self.command["name"])
+        self.cmd_input = QTextEdit(self.command["command"])
+        self.hold_input = QComboBox()
+        self.hold_input.addItems(["false", "true"])
+        self.hold_input.setCurrentIndex(1 if self.command.get("hold_terminal") else 0)
 
-        # Buttonbereiche für Server-Kommandos
-        self.btn_layout_server = QHBoxLayout()
-        self.btn_add_server_cmd = QPushButton("Add Server Command")
-        self.btn_edit_server_cmd = QPushButton("Edit Server Command")
-        self.btn_del_server_cmd = QPushButton("Delete Server Command")
-        self.btn_add_server_cmd.clicked.connect(self.add_server_command)
-        self.btn_edit_server_cmd.clicked.connect(self.edit_server_command)
-        self.btn_del_server_cmd.clicked.connect(self.delete_server_command)
-        self.btn_layout_server.addWidget(self.btn_add_server_cmd)
-        self.btn_layout_server.addWidget(self.btn_edit_server_cmd)
-        self.btn_layout_server.addWidget(self.btn_del_server_cmd)
-        main_layout.addLayout(self.btn_layout_server)
+        layout.addRow("Name:", self.name_input)
+        layout.addRow("Befehl:", self.cmd_input)
+        layout.addRow("Terminal offen halten:", self.hold_input)
 
-        # Buttonbereiche für Kategorie-Kommandos
-        self.btn_layout_category = QHBoxLayout()
-        self.btn_add_cat_cmd = QPushButton("Add Category Command")
-        self.btn_edit_cat_cmd = QPushButton("Edit Category Command")
-        self.btn_del_cat_cmd = QPushButton("Delete Category Command")
-        self.btn_add_cat_cmd.clicked.connect(self.add_category_command)
-        self.btn_edit_cat_cmd.clicked.connect(self.edit_category_command)
-        self.btn_del_cat_cmd.clicked.connect(self.delete_category_command)
-        self.btn_layout_category.addWidget(self.btn_add_cat_cmd)
-        self.btn_layout_category.addWidget(self.btn_edit_cat_cmd)
-        self.btn_layout_category.addWidget(self.btn_del_cat_cmd)
-        main_layout.addLayout(self.btn_layout_category)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
 
-        # Buttonbereiche für Globale Kommandos
-        self.btn_layout_global = QHBoxLayout()
-        self.btn_add_global_cmd = QPushButton("Add Global Command")
-        self.btn_edit_global_cmd = QPushButton("Edit Global Command")
-        self.btn_del_global_cmd = QPushButton("Delete Global Command")
-        self.btn_add_global_cmd.clicked.connect(self.add_global_command)
-        self.btn_edit_global_cmd.clicked.connect(self.edit_global_command)
-        self.btn_del_global_cmd.clicked.connect(self.delete_global_command)
-        self.btn_layout_global.addWidget(self.btn_add_global_cmd)
-        self.btn_layout_global.addWidget(self.btn_edit_global_cmd)
-        self.btn_layout_global.addWidget(self.btn_del_global_cmd)
-        main_layout.addLayout(self.btn_layout_global)
-
-        # Status Label
-        self.status_label = QLabel("")
-        main_layout.addWidget(self.status_label)
-
-        self.populate_tree()
-        self.update_buttons_enabled(False)
-
-    def populate_tree(self):
-        self.tree.clear()
-
-        # Kategorien aus Servern sammeln
-        categories = {}
-        for srv in self.servers:
-            cat = srv.get("category", "Ungrouped")
-            categories.setdefault(cat, []).append(srv)
-
-        # Kategorien mit Servern und Kommandos
-        for cat, servers in categories.items():
-            cat_item = QTreeWidgetItem([cat])
-            cat_item.setData(0, Qt.ItemDataRole.UserRole, ("category", cat))
-            self.tree.addTopLevelItem(cat_item)
-
-            # Kategorie-Kommandos unter Kategorie
-            cat_cmds = self.category_commands.get(cat, [])
-            cat_cmds_item = QTreeWidgetItem(["Category Commands"])
-            cat_cmds_item.setData(0, Qt.ItemDataRole.UserRole, ("category_commands", cat))
-            cat_item.addChild(cat_cmds_item)
-            for ccmd in cat_cmds:
-                cmd_item = QTreeWidgetItem([ccmd["name"]])
-                cmd_item.setData(0, Qt.ItemDataRole.UserRole, ("category_command", cat, ccmd))
-                cat_cmds_item.addChild(cmd_item)
-
-            # Server unter Kategorie
-            for srv in servers:
-                srv_item = QTreeWidgetItem([srv["name"]])
-                srv_item.setData(0, Qt.ItemDataRole.UserRole, ("server", srv))
-                cat_item.addChild(srv_item)
-
-                # Server-Kommandos unter Server
-                for cmd in srv.get("commands", []):
-                    cmd_item = QTreeWidgetItem([cmd["name"]])
-                    cmd_item.setData(0, Qt.ItemDataRole.UserRole, ("server_command", srv, cmd))
-                    srv_item.addChild(cmd_item)
-
-        # Globale Kommandos ganz unten
-        global_root = QTreeWidgetItem(["Global Commands"])
-        global_root.setData(0, Qt.ItemDataRole.UserRole, ("global_commands", None))
-        self.tree.addTopLevelItem(global_root)
-        for gcmd in self.global_commands:
-            gcmd_item = QTreeWidgetItem([gcmd["name"]])
-            gcmd_item.setData(0, Qt.ItemDataRole.UserRole, ("global_command", gcmd))
-            global_root.addChild(gcmd_item)
-
-        self.tree.expandAll()
-
-    def on_tree_item_clicked(self, item, column):
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not data:
-            self.update_buttons_enabled(False)
-            self.status_label.setText("")
-            return
-
-        kind = data[0]
-
-        # Reset all current selections
-        self.current_category = None
-        self.current_server = None
-        self.current_command = None
-        self.current_global_command = None
-        self.current_category_command = None
-
-        if kind == "category":
-            self.current_category = data[1]
-            self.status_label.setText(f"Selected category: {self.current_category}")
-            self.update_buttons_enabled(False)
-        elif kind == "server":
-            self.current_server = data[1]
-            self.status_label.setText(f"Selected server: {self.current_server['name']}")
-            self.update_buttons_enabled(False)
-        elif kind == "server_command":
-            self.current_server = data[1]
-            self.current_command = data[2]
-            self.status_label.setText(f"Selected server command: {self.current_command['name']}")
-            self.update_buttons_enabled(True, for_type="server_command")
-        elif kind == "category_commands":
-            self.current_category = data[1]
-            self.status_label.setText(f"Selected category commands for {self.current_category}")
-            self.update_buttons_enabled(False)
-        elif kind == "category_command":
-            self.current_category = data[1]
-            self.current_category_command = data[2]
-            self.status_label.setText(f"Selected category command: {self.current_category_command['name']}")
-            self.update_buttons_enabled(True, for_type="category_command")
-        elif kind == "global_commands":
-            self.status_label.setText("Selected global commands")
-            self.update_buttons_enabled(False)
-        elif kind == "global_command":
-            self.current_global_command = data[1]
-            self.status_label.setText(f"Selected global command: {self.current_global_command['name']}")
-            self.update_buttons_enabled(True, for_type="global_command")
-        else:
-            self.update_buttons_enabled(False)
-            self.status_label.setText("")
-
-    def update_buttons_enabled(self, enabled, for_type=None):
-        # Server command buttons
-        self.btn_add_server_cmd.setEnabled(self.current_server is not None)
-        self.btn_edit_server_cmd.setEnabled(enabled and for_type == "server_command")
-        self.btn_del_server_cmd.setEnabled(enabled and for_type == "server_command")
-
-        # Category command buttons
-        self.btn_add_cat_cmd.setEnabled(self.current_category is not None)
-        self.btn_edit_cat_cmd.setEnabled(enabled and for_type == "category_command")
-        self.btn_del_cat_cmd.setEnabled(enabled and for_type == "category_command")
-
-        # Global command buttons
-        # Add is always enabled to add new global commands
-        self.btn_add_global_cmd.setEnabled(True)
-        self.btn_edit_global_cmd.setEnabled(enabled and for_type == "global_command")
-        self.btn_del_global_cmd.setEnabled(enabled and for_type == "global_command")
-
-    def add_server_command(self):
-        if not self.current_server:
-            self.show_error("Please select a server first.")
-            return
-        cmd = self.get_command_details()
-        if cmd:
-            self.current_server.setdefault("commands", []).append(cmd)
-            self.save_data()
-            self.populate_tree()
-
-    def edit_server_command(self):
-        if not self.current_command or not self.current_server:
-            self.show_error("Please select a server command first.")
-            return
-        new_cmd = self.get_command_details(self.current_command)
-        if new_cmd:
-            # Update inplace
-            self.current_command.update(new_cmd)
-            self.save_data()
-            self.populate_tree()
-
-    def delete_server_command(self):
-        if not self.current_command or not self.current_server:
-            self.show_error("Please select a server command first.")
-            return
-        cmds = self.current_server.get("commands", [])
-        cmds.remove(self.current_command)
-        self.save_data()
-        self.populate_tree()
-
-    def add_category_command(self):
-        if not self.current_category:
-            self.show_error("Please select a category first.")
-            return
-        cmd = self.get_command_details()
-        if cmd:
-            self.category_commands.setdefault(self.current_category, []).append(cmd)
-            self.save_data()
-            self.populate_tree()
-
-    def edit_category_command(self):
-        if not self.current_category_command or not self.current_category:
-            self.show_error("Please select a category command first.")
-            return
-        new_cmd = self.get_command_details(self.current_category_command)
-        if new_cmd:
-            self.current_category_command.update(new_cmd)
-            self.save_data()
-            self.populate_tree()
-
-    def delete_category_command(self):
-        if not self.current_category_command or not self.current_category:
-            self.show_error("Please select a category command first.")
-            return
-        cmds = self.category_commands.get(self.current_category, [])
-        cmds.remove(self.current_category_command)
-        self.save_data()
-        self.populate_tree()
-
-    def add_global_command(self):
-        cmd = self.get_command_details()
-        if cmd:
-            self.global_commands.append(cmd)
-            self.save_data()
-            self.populate_tree()
-
-    def edit_global_command(self):
-        if not self.current_global_command:
-            self.show_error("Please select a global command first.")
-            return
-        new_cmd = self.get_command_details(self.current_global_command)
-        if new_cmd:
-            self.current_global_command.update(new_cmd)
-            self.save_data()
-            self.populate_tree()
-
-    def delete_global_command(self):
-        if not self.current_global_command:
-            self.show_error("Please select a global command first.")
-            return
-        self.global_commands.remove(self.current_global_command)
-        self.save_data()
-        self.populate_tree()
-
-    def get_command_details(self, cmd=None):
-        """
-        Öffnet Dialoge, um name, command und hold_terminal abzufragen.
-        Falls cmd übergeben, werden Werte vorgefüllt (Editiermodus).
-        Gibt dict oder None zurück.
-        """
-        name, ok = QInputDialog.getText(self, "Command Name", "Name:", QLineEdit.EchoMode.Normal, cmd["name"] if cmd else "")
-        if not ok or not name.strip():
-            return None
-        command, ok = QInputDialog.getText(self, "Command", "Shell command:", QLineEdit.EchoMode.Normal, cmd["command"] if cmd else "")
-        if not ok or not command.strip():
-            return None
-        hold_terminal, ok = QInputDialog.getItem(self, "Hold Terminal", "Hold terminal open after command?", ["True", "False"], 0 if (cmd and cmd.get("hold_terminal", True)) else 1, False)
-        if not ok:
-            return None
+    def get_result(self):
         return {
-            "name": name.strip(),
-            "command": command.strip(),
-            "hold_terminal": hold_terminal == "True"
+            "name": self.name_input.text(),
+            "command": self.cmd_input.toPlainText(),
+            "hold_terminal": self.hold_input.currentText() == "true"
         }
 
-    def show_error(self, msg):
-        QMessageBox.warning(self, "Error", msg)
+class ServerDialog(QDialog):
+    def __init__(self, parent=None, server=None, categories=None):
+        super().__init__(parent)
+        self.setWindowTitle("Server bearbeiten" if server else "Server hinzufügen")
+        self.server = server or {"name": "", "host": "", "user": "", "category": ""}
+        self.categories = categories or []
+        self.init_ui()
 
-    def save_data(self):
-        self.data["servers"] = self.servers
-        self.data["category_commands"] = self.category_commands
-        self.data["global_commands"] = self.global_commands
+    def init_ui(self):
+        layout = QFormLayout(self)
 
-        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            yaml.dump(self.data, f, sort_keys=False)
+        self.name_input = QLineEdit(self.server["name"])
+        self.host_input = QLineEdit(self.server["host"])
+        self.user_input = QLineEdit(self.server["user"])
+        self.cat_input = QComboBox()
+        self.cat_input.addItems(self.categories)
+        if self.server["category"] in self.categories:
+            self.cat_input.setCurrentText(self.server["category"])
 
-def main():
-    if not os.path.exists(CONFIG_PATH):
-        # Erstelle default leere Struktur, falls nicht da
-        data = {"servers": [], "category_commands": {}, "global_commands": []}
-    else:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {"servers": [], "category_commands": {}, "global_commands": []}
+        layout.addRow("Name:", self.name_input)
+        layout.addRow("Host:", self.host_input)
+        layout.addRow("User:", self.user_input)
+        layout.addRow("Kategorie:", self.cat_input)
 
-    app = QApplication(sys.argv)
-    editor = ServerEditor(data)
-    editor.show()
-    sys.exit(app.exec())
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def get_result(self):
+        return {
+            "name": self.name_input.text(),
+            "host": self.host_input.text(),
+            "user": self.user_input.text(),
+            "category": self.cat_input.currentText(),
+            "commands": self.server.get("commands", [])
+        }
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("RunOnServer Editor")
+        self.resize(600, 500)
+        self.data = load_config()
+
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Name"])
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self.open_menu)
+        self.setCentralWidget(self.tree)
+
+        self.build_tree()
+
+    def build_tree(self):
+        self.tree.clear()
+
+        # Globale Befehle
+        global_item = QTreeWidgetItem(["Globale Befehle"])
+        self.tree.addTopLevelItem(global_item)
+        for cmd in self.data.get("global_commands", []):
+            QTreeWidgetItem(global_item, [cmd["name"]])
+
+        # Kategorie-spezifische Befehle + Server
+        categories = {}
+        for server in self.data.get("servers", []):
+            cat = server.get("category", "Unkategorisiert")
+            if cat not in categories:
+                cat_item = QTreeWidgetItem([cat])
+                self.tree.addTopLevelItem(cat_item)
+                categories[cat] = cat_item
+
+                # Kategorie-Befehle
+                for cmd in self.data.get("category_commands", {}).get(cat, []):
+                    QTreeWidgetItem(cat_item, [f"[Gruppe] {cmd['name']}"])
+
+            server_item = QTreeWidgetItem([server["name"]])
+            server_item.setData(0, Qt.ItemDataRole.UserRole, server)
+            categories[cat].addChild(server_item)
+
+            for cmd in server.get("commands", []):
+                QTreeWidgetItem(server_item, [cmd["name"]])
+
+    def open_menu(self, pos):
+        item = self.tree.itemAt(pos)
+        if not item:
+            return
+
+        menu = QMenu()
+        parent = item.parent()
+
+        if parent and parent.parent():  # Serverbefehl
+            menu.addAction("Befehl bearbeiten", lambda: self.edit_command(parent, item))
+            menu.addAction("Befehl löschen", lambda: self.delete_command(parent, item))
+        elif parent:  # Server
+            menu.addAction("Server bearbeiten", lambda: self.edit_server(item))
+            menu.addAction("Server löschen", lambda: self.delete_server(item))
+            menu.addAction("Serverbefehl hinzufügen", lambda: self.add_command(item))
+            menu.addAction("Server klonen", lambda: self.clone_server(item))
+            menu.addAction("Server verschieben", lambda: self.move_server(item))
+        elif item.text(0) == "Globale Befehle":
+            menu.addAction("Globalen Befehl hinzufügen", self.add_global_command)
+        elif item.text(0) in self.data.get("category_commands", {}):  # Kategorie
+            menu.addAction("Kategorie-Befehl hinzufügen", lambda: self.add_category_command(item))
+            menu.addAction("Kategorie-Befehl bearbeiten", lambda: self.edit_category_command(item))
+            menu.addAction("Kategorie-Befehl löschen", lambda: self.delete_category_command(item))
+            menu.addAction("Server hinzufügen", lambda: self.add_server(item))
+
+        menu.exec(self.tree.viewport().mapToGlobal(pos))
+
+    def find_server(self, name):
+        return next((s for s in self.data["servers"] if s["name"] == name), None)
+
+    def add_server(self, cat_item):
+        dialog = ServerDialog(self, categories=self.data["category_commands"].keys())
+        if dialog.exec():
+            new_server = dialog.get_result()
+            self.data["servers"].append(new_server)
+            save_config(self.data)
+            self.build_tree()
+
+    def edit_server(self, item):
+        server = self.find_server(item.text(0))
+        if server:
+            dialog = ServerDialog(self, server=server, categories=self.data["category_commands"].keys())
+            if dialog.exec():
+                updated = dialog.get_result()
+                index = self.data["servers"].index(server)
+                self.data["servers"][index] = updated
+                save_config(self.data)
+                self.build_tree()
+
+    def delete_server(self, item):
+        server = self.find_server(item.text(0))
+        if server and QMessageBox.question(self, "Löschen", "Diesen Server löschen?") == QMessageBox.StandardButton.Yes:
+            self.data["servers"].remove(server)
+            save_config(self.data)
+            self.build_tree()
+
+    def clone_server(self, item):
+        server = self.find_server(item.text(0))
+        if not server:
+            return
+        clone = server.copy()
+        clone["name"] += " (Kopie)"
+        dialog = ServerDialog(self, server=clone, categories=self.data["category_commands"].keys())
+        if dialog.exec():
+            self.data["servers"].append(dialog.get_result())
+            save_config(self.data)
+            self.build_tree()
+
+    def move_server(self, item):
+        server = self.find_server(item.text(0))
+        if not server:
+            return
+        new_cat, ok = QInputDialog.getItem(self, "Kategorie wählen", "Neue Kategorie:", list(self.data["category_commands"].keys()), editable=False)
+        if ok and new_cat != server["category"]:
+            server["category"] = new_cat
+            save_config(self.data)
+            self.build_tree()
+
+    def add_command(self, server_item):
+        server = self.find_server(server_item.text(0))
+        if server:
+            dialog = CommandDialog(self)
+            if dialog.exec():
+                server["commands"].append(dialog.get_result())
+                save_config(self.data)
+                self.build_tree()
+
+    def edit_command(self, server_item, cmd_item):
+        server = self.find_server(server_item.text(0))
+        cmd_name = cmd_item.text(0)
+        if server:
+            cmd = next((c for c in server["commands"] if c["name"] == cmd_name), None)
+            if cmd:
+                dialog = CommandDialog(self, command=cmd)
+                if dialog.exec():
+                    index = server["commands"].index(cmd)
+                    server["commands"][index] = dialog.get_result()
+                    save_config(self.data)
+                    self.build_tree()
+
+    def delete_command(self, server_item, cmd_item):
+        server = self.find_server(server_item.text(0))
+        cmd_name = cmd_item.text(0)
+        if server and QMessageBox.question(self, "Löschen", "Diesen Befehl löschen?") == QMessageBox.StandardButton.Yes:
+            server["commands"] = [c for c in server["commands"] if c["name"] != cmd_name]
+            save_config(self.data)
+            self.build_tree()
+
+    def add_global_command(self):
+        dialog = CommandDialog(self)
+        if dialog.exec():
+            self.data["global_commands"].append(dialog.get_result())
+            save_config(self.data)
+            self.build_tree()
+
+    def add_category_command(self, cat_item):
+        dialog = CommandDialog(self)
+        if dialog.exec():
+            cat = cat_item.text(0)
+            self.data["category_commands"].setdefault(cat, []).append(dialog.get_result())
+            save_config(self.data)
+            self.build_tree()
+
+    def edit_category_command(self, cat_item):
+        cat = cat_item.text(0)
+        cmds = self.data["category_commands"].get(cat, [])
+        names = [c["name"] for c in cmds]
+        name, ok = QInputDialog.getItem(self, "Befehl wählen", "Befehl bearbeiten:", names, editable=False)
+        if ok:
+            cmd = next((c for c in cmds if c["name"] == name), None)
+            if cmd:
+                dialog = CommandDialog(self, command=cmd)
+                if dialog.exec():
+                    index = cmds.index(cmd)
+                    self.data["category_commands"][cat][index] = dialog.get_result()
+                    save_config(self.data)
+                    self.build_tree()
+
+    def delete_category_command(self, cat_item):
+        cat = cat_item.text(0)
+        cmds = self.data["category_commands"].get(cat, [])
+        names = [c["name"] for c in cmds]
+        name, ok = QInputDialog.getItem(self, "Befehl wählen", "Befehl löschen:", names, editable=False)
+        if ok and QMessageBox.question(self, "Löschen", "Diesen Gruppenbefehl löschen?") == QMessageBox.StandardButton.Yes:
+            self.data["category_commands"][cat] = [c for c in cmds if c["name"] != name]
+            save_config(self.data)
+            self.build_tree()
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
