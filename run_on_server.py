@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QIcon
 
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "runonserver")
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "RunOnServer")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "servers.yaml")
 
 
