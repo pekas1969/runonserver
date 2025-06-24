@@ -23,7 +23,7 @@
 
 | Main Menu                     | Terminal Window                          |
 |--------------------------------|---------------------------------------|
-| ![Main Window](screenshots/RunOnServer/RunOnServer_Menu.png) | ![Manpage Window](screenshots/RunOnServer/RunOnServer_Terminal.png) |
+| ![Main Window](Screenshots/RunOnServer/RunOnServer_Menu.png) | ![Manpage Window](Screenshots/RunOnServer/RunOnServer_Terminal.png) |
 
 | Server Editor Add/Edit Server                     | Server Edit0r Add/Edit Command                          |  Server Editor Server Menu                     | Server Editor Command Menu                          |
 |--------------------------------|---------------------------------------|--------------------------------|---------------------------------------|
