@@ -144,21 +144,21 @@ class MainWindow(QMainWindow):
         parent = item.parent()
 
         if parent and parent.parent():  # Serverbefehl
-            menu.addAction("Befehl bearbeiten", lambda: self.edit_command(parent, item))
-            menu.addAction("Befehl löschen", lambda: self.delete_command(parent, item))
+            menu.addAction("Edit command", lambda: self.edit_command(parent, item))
+            menu.addAction("Delete command", lambda: self.delete_command(parent, item))
         elif parent:  # Server
-            menu.addAction("Server bearbeiten", lambda: self.edit_server(item))
-            menu.addAction("Server löschen", lambda: self.delete_server(item))
-            menu.addAction("Serverbefehl hinzufügen", lambda: self.add_command(item))
-            menu.addAction("Server klonen", lambda: self.clone_server(item))
-            menu.addAction("Server verschieben", lambda: self.move_server(item))
-        elif item.text(0) == "Globale Befehle":
-            menu.addAction("Globalen Befehl hinzufügen", self.add_global_command)
+            menu.addAction("New Server", lambda: self.add_server(item))
+            menu.addAction("Edit server", lambda: self.edit_server(item))
+            menu.addAction("Delete server", lambda: self.delete_server(item))
+            menu.addAction("New command", lambda: self.add_command(item))
+            menu.addAction("Clone server", lambda: self.clone_server(item))
+            menu.addAction("Move server", lambda: self.move_server(item))
+        elif item.text(0) == "Global commands":
+            menu.addAction("New global command", self.add_global_command)
         elif item.text(0) in self.data.get("category_commands", {}):  # Kategorie
-            menu.addAction("Kategorie-Befehl hinzufügen", lambda: self.add_category_command(item))
-            menu.addAction("Kategorie-Befehl bearbeiten", lambda: self.edit_category_command(item))
-            menu.addAction("Kategorie-Befehl löschen", lambda: self.delete_category_command(item))
-            menu.addAction("Server hinzufügen", lambda: self.add_server(item))
+            menu.addAction("New group command", lambda: self.add_category_command(item))
+            menu.addAction("Edit group command", lambda: self.edit_category_command(item))
+            menu.addAction("Delete group command", lambda: self.delete_category_command(item))
 
         menu.exec(self.tree.viewport().mapToGlobal(pos))
 

@@ -18,6 +18,16 @@
   - Add/edit/delete commands (server, group, global)
   - Clone or move servers between categories
   - Manage everything without manually editing YAML
+  
+### Screenshots
+
+| Main Menu                     | Terminal Window                          |
+|--------------------------------|---------------------------------------|
+| ![Main Window](screenshots/RunOnServer/RunOnServer_Menu.png) | ![Manpage Window](screenshots/RunOnServer/RunOnServer_Terminal.png) |
+
+| Server Editor Add/Edit Server                     | Server Editr Add/Edit Command                          |  Server Editor Server Menu                     | Server Editor Command Menu                          |
+|--------------------------------|---------------------------------------|
+| ![Main Window](screenshots/RunOnServer/RunOnServer_Editor-1.png) | ![Manpage Window](screenshots/RunOnServer/RunOnServer_Editor-2.png) | ![Main Window](screenshots/RunOnServer/RunOnServer_Editor-3.png) | ![Manpage Window](screenshots/RunOnServer/RunOnServer_Editor-4.png) |
 
 ## 🛠️ Installation (without virtual environment)
 

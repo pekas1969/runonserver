@@ -113,7 +113,7 @@ def build_menu(tray_icon, config):
                 server_menu.addAction(cmd["name"], lambda c=cmd: run_command(c["command"], c.get("hold_terminal", False)))
 
     menu.addSeparator()
-    menu.addAction("Beenden", QApplication.instance().quit)
+    menu.addAction("Quit", QApplication.instance().quit)
     tray_icon.setContextMenu(menu)
 
 
