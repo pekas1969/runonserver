@@ -27,7 +27,7 @@
 
 | Server Editor Add/Edit Server                     | Server Edit0r Add/Edit Command                          |  Server Editor Server Menu                     | Server Editor Command Menu                          |
 |--------------------------------|---------------------------------------|--------------------------------|---------------------------------------|
-| ![Main Window](./screenshots/RunOnServer/RunOnServer_Editor-1.png) | ![Manpage Window](./screenshots/RunOnServer/RunOnServer_Editor-2.png) | ![Main Window](./screenshots/RunOnServer/RunOnServer_Editor-3.png) | ![Manpage Window](./screenshots/RunOnServer/RunOnServer_Editor-4.png) |
+| ![Main Window](./Screenshots/RunOnServer/RunOnServer_Editor-1.png) | ![Manpage Window](./Screenshots/RunOnServer/RunOnServer_Editor-2.png) | ![Main Window](./Screenshots/RunOnServer/RunOnServer_Editor-3.png) | ![Manpage Window](./Screenshots/RunOnServer/RunOnServer_Editor-4.png) |
 
 ## 🛠️ Installation (without virtual environment)
 
