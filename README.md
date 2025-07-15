@@ -120,12 +120,9 @@ Use the install script to create `.desktop` launchers for menu integration:
 ./install_desktop_entries.sh
 ```
 
-## 📬 Contact
 
-**Author**: Peter Kaspar  
-**GitHub**: [github.com/pekas1969](https://github.com/pekas1969)  
-**Email**: kaspar@limbic-media.de
+## License
 
----
-
-Licensed under MIT License.
+(C)2025 Peter Kasparak under the MIT-Lizence.
+This project is open source, do what you want.
+Contact: peter.kasparak@gmail.com
